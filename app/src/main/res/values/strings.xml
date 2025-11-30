@@ -1,0 +1,43 @@
+<resources>
+    <string name="app_name">SafePath+</string>
+    <string name="slogan">Votre chemin, en toute sécurité</string>
+
+    <!-- Authentification -->
+    <string name="login">Se connecter</string>
+    <string name="register">Créer un compte</string>
+    <string name="forgot_password">Mot de passe oublié</string>
+    <string name="email">Email</string>
+    <string name="password">Mot de passe</string>
+    <string name="full_name">Nom complet</string>
+    <string name="confirm_password">Confirmer le mot de passe</string>
+    <string name="accept_terms">J\'accepte les conditions</string>
+
+    <!-- Fonctionnalités principales -->
+    <string name="sos_button">ALERTE SOS</string>
+    <string name="report_danger">Signaler un danger</string>
+    <string name="safe_route">Itinéraire sécurisé</string>
+    <string name="history">Historique</string>
+    <string name="security_tips">Conseils de sécurité</string>
+    <string name="emergency_contacts">Contacts d\'urgence</string>
+    <string name="profile">Profil</string>
+
+    <!-- Messages -->
+    <string name="login_success">Connexion réussie</string>
+    <string name="login_failed">Échec de la connexion</string>
+    <string name="registration_success">Inscription réussie</string>
+    <string name="registration_failed">Échec de l\'inscription</string>
+    <string name="report_submitted">Signalement soumis pour validation</string>
+    <string name="sos_sent">Alerte SOS envoyée</string>
+    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID_HERE</string>
+
+    <!-- Types de danger -->
+    <string-array name="danger_types">
+        <item>Vol</item>
+        <item>Agression</item>
+        <item>Accident</item>
+        <item>Route sombre</item>
+        <item>Harcèlement</item>
+        <item>Infrastructure dangereuse</item>
+        <item>Autre</item>
+    </string-array>
+</resources>
