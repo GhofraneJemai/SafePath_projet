@@ -11,6 +11,8 @@ public class Report {
     private double latitude;
     private double longitude;
     private String status;
+    private String locationSource; // Ajoutez ce champ
+
     private Date createdAt;
     private Date updatedAt;
     private String moderatorId;
@@ -37,6 +39,13 @@ public class Report {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public String getImageUrl() { return imageUrl; }
+    public String getLocationSource() {
+        return locationSource;
+    }
+
+    public void setLocationSource(String locationSource) {
+        this.locationSource = locationSource;
+    }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public double getLatitude() { return latitude; }
     public void setLatitude(double latitude) { this.latitude = latitude; }

@@ -142,15 +142,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         reportsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                googleMap.clear();
+                googleMap.clear(); // <-- removes safe zones too
                 for (DataSnapshot data : snapshot.getChildren()) {
                     Report report = data.getValue(Report.class);
                     if (report != null) {
-                        report.setId(data.getKey());
                         addDangerMarker(report);
                     }
                 }
-                loadSafeZones();
+                loadSafeZones(); // reload safe zones
             }
 
             @Override
@@ -159,6 +158,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
     }
+
 
     private void loadSafeZones() {
         safeZonesRef.addValueEventListener(new ValueEventListener() {

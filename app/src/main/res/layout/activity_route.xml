@@ -82,6 +82,65 @@
         android:layout_below="@id/selectedLocationText"
         android:layout_above="@id/controlsSection" />
 
+    <!-- Danger Alert Section -->
+    <LinearLayout
+        android:id="@+id/dangerAlertLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/controlsSection"
+        android:orientation="vertical"
+        android:background="@drawable/ic_danger"
+        android:padding="16dp"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        android:elevation="10dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚠️ ALERTE DE SÉCURITÉ"
+            android:textColor="@color/danger_color"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/dangerCountText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Dangers détectés sur votre chemin"
+            android:textColor="@android:color/black"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/viewDangersButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Voir les détails des dangers"
+            android:backgroundTint="@color/danger_color"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:id="@+id/acceptRedirectButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Prendre un chemin alternatif"
+            android:backgroundTint="@color/safe_color"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:id="@+id/ignoreDangersButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Continuer quand même"
+            style="?android:attr/borderlessButtonStyle"
+            android:textColor="@color/danger_color" />
+
+    </LinearLayout>
+
     <!-- Controls Section -->
     <LinearLayout
         android:id="@+id/controlsSection"
@@ -102,12 +161,12 @@
 
         <!-- Route Info -->
         <LinearLayout
+            android:id="@+id/routeInfoLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginBottom="16dp"
-            android:visibility="gone"
-            android:id="@+id/routeInfoLayout">
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="0dp"

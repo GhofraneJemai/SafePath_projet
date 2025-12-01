@@ -55,24 +55,28 @@ public class RegisterActivity extends AppCompatActivity {
         String password = passwordEditText.getText().toString().trim();
         String confirmPassword = confirmPasswordEditText.getText().toString().trim();
 
-        if (!validateInputs(name, email, password, confirmPassword)) {
-            return;
-        }
+        if (!validateInputs(name, email, password, confirmPassword)) return;
 
         progressBar.setVisibility(View.VISIBLE);
 
-        FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password)
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        auth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
+                    progressBar.setVisibility(View.GONE);
                     if (task.isSuccessful()) {
-                        saveUserToDatabase(name, email);
+                        // Registration successful, redirect to MainActivity
+                        Toast.makeText(RegisterActivity.this, "Inscription réussie!", Toast.LENGTH_SHORT).show();
+                        startActivity(new Intent(RegisterActivity.this, MainActivity.class));
+                        finish();
                     } else {
-                        progressBar.setVisibility(View.GONE);
+                        // Registration failed
                         Toast.makeText(RegisterActivity.this,
                                 "Échec de l'inscription: " + task.getException().getMessage(),
                                 Toast.LENGTH_LONG).show();
                     }
                 });
     }
+
 
     private boolean validateInputs(String name, String email, String password, String confirmPassword) {
         if (name.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
