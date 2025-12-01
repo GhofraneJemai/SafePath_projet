@@ -69,7 +69,14 @@
             app:backgroundTint="@color/primary_color"
             app:tint="@color/white"
             android:src="@drawable/ic_route" />
-
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/sos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:backgroundTint="@color/danger_red"
+            app:tint="@color/white"
+            android:src="@drawable/ic_danger" />
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/reportFab"
             android:layout_width="wrap_content"

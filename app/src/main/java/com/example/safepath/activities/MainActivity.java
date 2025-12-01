@@ -3,16 +3,23 @@ package com.example.safepath.activities;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
+import android.telephony.SmsManager;
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.example.safepath.R;
+import com.example.safepath.models.EmergencyContact;
 import com.example.safepath.models.Report;
 import com.example.safepath.models.SafeZone;
 import com.example.safepath.models.User;
@@ -42,7 +49,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private FusedLocationProviderClient fusedLocationClient;
 
     private ImageView profileImage, notificationIcon;
-    private FloatingActionButton sosFab, reportFab, routeFab;
+    private FloatingActionButton sosFab, reportFab, routeFab, sos;
     private boolean fabExpanded = false;
 
     private DatabaseReference reportsRef, safeZonesRef, usersRef;
@@ -60,7 +67,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         setContentView(R.layout.activity_main);
 
-        // Références Firebase
         reportsRef = FirebaseDatabase.getInstance().getReference("reports");
         safeZonesRef = FirebaseDatabase.getInstance().getReference("safe_zones");
         usersRef = FirebaseDatabase.getInstance().getReference("users");
@@ -80,9 +86,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         reportFab = findViewById(R.id.reportFab);
         routeFab = findViewById(R.id.routeFab);
         mapView = findViewById(R.id.mapView);
+        sos = findViewById(R.id.sos);
 
-        reportFab.setVisibility(FloatingActionButton.GONE);
-        routeFab.setVisibility(FloatingActionButton.GONE);
+        reportFab.setVisibility(View.GONE);
+        routeFab.setVisibility(View.GONE);
+        sos.setVisibility(View.GONE);
 
         profileImage.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         notificationIcon.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
@@ -94,12 +102,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         reportFab.setOnClickListener(v -> startActivity(new Intent(this, ReportActivity.class)));
         routeFab.setOnClickListener(v -> startActivity(new Intent(this, RouteActivity.class)));
+        sos.setOnClickListener(v -> showSOSDialog());
     }
 
     private void expandFABs() {
         fabExpanded = true;
         reportFab.show();
         routeFab.show();
+        sos.show();
         sosFab.setImageResource(R.drawable.ic_close);
     }
 
@@ -107,12 +117,32 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         fabExpanded = false;
         reportFab.hide();
         routeFab.hide();
+        sos.hide();
         sosFab.setImageResource(R.drawable.ic_sos);
     }
 
     private void setupMap() {
         mapView.onCreate(null);
         mapView.getMapAsync(this);
+    }
+
+    private void loadUserData() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        usersRef.child(currentUser.getUid())
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        User user = snapshot.getValue(User.class);
+                        if (user != null && user.getProfileImage() != null) {
+                            Glide.with(MainActivity.this).load(user.getProfileImage()).into(profileImage);
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(MainActivity.this, "Erreur chargement profil", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     @Override
@@ -123,11 +153,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         getCurrentLocation();
         loadDangerZones();
-        loadSafeZones();
     }
 
     private void getCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+
             fusedLocationClient.getLastLocation()
                     .addOnSuccessListener(this, location -> {
                         if (location != null) {
@@ -142,14 +173,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         reportsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                googleMap.clear(); // <-- removes safe zones too
+                googleMap.clear();
                 for (DataSnapshot data : snapshot.getChildren()) {
                     Report report = data.getValue(Report.class);
-                    if (report != null) {
-                        addDangerMarker(report);
-                    }
+                    if (report != null) addDangerMarker(report);
                 }
-                loadSafeZones(); // reload safe zones
+                loadSafeZones();
             }
 
             @Override
@@ -158,7 +187,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
     }
-
 
     private void loadSafeZones() {
         safeZonesRef.addValueEventListener(new ValueEventListener() {
@@ -199,89 +227,119 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         BottomNavigationView bottomNav = findViewById(R.id.bottomNavigation);
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
-            if (id == R.id.nav_home) {
-                return true;
-            } else if (id == R.id.nav_history) {
-                startActivity(new Intent(this, HistoryActivity.class));
-                return true;
-            } else if (id == R.id.nav_tips) {
-                startActivity(new Intent(this, TipsActivity.class));
-                return true;
-            } else if (id == R.id.nav_contacts) {
-                startActivity(new Intent(this, ContactsActivity.class));
-                return true;
-            }
-            return false;
+            if (id == R.id.nav_home) return true;
+            if (id == R.id.nav_history) startActivity(new Intent(this, HistoryActivity.class));
+            else if (id == R.id.nav_tips) startActivity(new Intent(this, TipsActivity.class));
+            else if (id == R.id.nav_contacts) startActivity(new Intent(this, ContactsActivity.class));
+            return true;
         });
     }
 
+    private void showSOSDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = getLayoutInflater().inflate(R.layout.dialog_sos, null);
+        builder.setView(view);
 
-    private void loadUserData() {
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null) {
-            startActivity(new Intent(this, LoginActivity.class));
-            finish();
+        Button callPolice = view.findViewById(R.id.callPoliceButton);
+        Button callSamu = view.findViewById(R.id.callSamuButton);
+        Button callContact = view.findViewById(R.id.callContactButton);
+
+        callPolice.setOnClickListener(v -> callPhoneNumber("17"));
+        callSamu.setOnClickListener(v -> callPhoneNumber("15"));
+        callContact.setOnClickListener(v -> showContactsDialog());
+
+        builder.setNegativeButton("Annuler", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+
+    // -------------------------------------------------------------------------
+    // ---------------------- PHONE CALL + SAVE SOS ----------------------------
+    // -------------------------------------------------------------------------
+
+    private void callPhoneNumber(String number) {
+        Intent intent = new Intent(Intent.ACTION_CALL);
+        intent.setData(Uri.parse("tel:" + number));
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE)
+                == PackageManager.PERMISSION_GRANTED) {
+
+            startActivity(intent);
+
+            fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+                if (location != null) {
+                    saveSOS(
+                            number.equals("17") ? "Appel Police" : "Appel SAMU",
+                            number,
+                            location.getLatitude(),
+                            location.getLongitude()
+                    );
+                }
+            });
+
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CALL_PHONE}, 101);
+        }
+    }
+
+    private void saveSOS(String type, String contactPhone, double latitude, double longitude) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) return;
+
+        DatabaseReference sosRef = FirebaseDatabase.getInstance().getReference("sos_alerts");
+        String sosId = sosRef.push().getKey();
+        if (sosId == null) return;
+
+        sosRef.child(sosId).child("userId").setValue(user.getUid());
+        sosRef.child(sosId).child("type").setValue(type);
+        sosRef.child(sosId).child("contactPhone").setValue(contactPhone);
+        sosRef.child(sosId).child("timestamp").setValue(System.currentTimeMillis());
+        sosRef.child(sosId).child("locationUrl")
+                .setValue("https://www.google.com/maps?q=" + latitude + "," + longitude);
+    }
+
+
+    // -------------------------------------------------------------------------
+    // --------------------------- TRUSTED CONTACT -----------------------------
+    // -------------------------------------------------------------------------
+
+    private void showContactsDialog() {
+        startActivity(new Intent(this, ContactsActivity.class));
+    }
+
+
+    // -------------------------------------------------------------------------
+    // ---------------------------- SEND EMERGENCY SMS -------------------------
+    // -------------------------------------------------------------------------
+
+    private void sendEmergencySMS(String phone) {
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
+                != PackageManager.PERMISSION_GRANTED ||
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this, new String[]{
+                    Manifest.permission.SEND_SMS,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+            }, 1);
             return;
         }
 
-        usersRef.child(currentUser.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                User user = snapshot.getValue(User.class);
-                if (user != null && user.getProfileImage() != null) {
-                    Glide.with(MainActivity.this).load(user.getProfileImage()).into(profileImage);
-                }
-            }
+        fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+            if (location != null) {
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(MainActivity.this, "Erreur chargement profil", Toast.LENGTH_SHORT).show();
+                String message = "Aide-moi, je suis en danger !\nMa position : " +
+                        "https://www.google.com/maps?q=" +
+                        location.getLatitude() + "," + location.getLongitude();
+
+                SmsManager.getDefault().sendTextMessage(phone, null, message, null, null);
+
+                Toast.makeText(MainActivity.this, "SMS envoyé à " + phone, Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(MainActivity.this, "Position non disponible", Toast.LENGTH_SHORT).show();
             }
         });
     }
-
-
-    @Override
-    protected void onSaveInstanceState(@NonNull Bundle outState) {
-        super.onSaveInstanceState(outState);
-        mapView.onSaveInstanceState(outState);
-    }
-
-
-    @Override
-    protected void onDestroy() {
-        if (mapView != null) mapView.onDestroy();
-        super.onDestroy();
-    }
-
-    @Override
-    protected void onPause() {
-        if (mapView != null) mapView.onPause();
-        super.onPause();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (mapView != null) mapView.onResume();
-    }
-
-    @Override
-    public void onLowMemory() {
-        super.onLowMemory();
-        if (mapView != null) mapView.onLowMemory();
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        if (mapView != null) mapView.onStart();
-    }
-
-    @Override
-    protected void onStop() {
-        if (mapView != null) mapView.onStop();
-        super.onStop();
-    }
-
 }

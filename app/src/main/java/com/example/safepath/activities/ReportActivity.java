@@ -98,7 +98,6 @@ public class ReportActivity extends AppCompatActivity {
 
             String databaseUrl = "https://safepath-7da06-default-rtdb.europe-west1.firebasedatabase.app";
             FirebaseDatabase database = FirebaseDatabase.getInstance(databaseUrl);
-            database.setPersistenceEnabled(true);
 
             Log.d(TAG, "✅ FirebaseDatabase instance created");
             Log.d(TAG, "Database URL: " + databaseUrl);

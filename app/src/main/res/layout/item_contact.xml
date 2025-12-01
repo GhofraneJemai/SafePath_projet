@@ -46,7 +46,21 @@
             android:layout_height="40dp"
             android:src="@drawable/ic_delete"
             android:background="?attr/selectableItemBackgroundBorderless" />
-
+        <ImageButton
+            android:id="@+id/callButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_phone"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Appeler"
+            android:layout_marginStart="8dp" />
+        <ImageButton
+            android:id="@+id/smsButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_sms"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Envoyer SMS" />
     </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>

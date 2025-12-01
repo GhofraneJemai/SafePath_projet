@@ -11,7 +11,15 @@
     <string name="full_name">Nom complet</string>
     <string name="confirm_password">Confirmer le mot de passe</string>
     <string name="accept_terms">J\'accepte les conditions</string>
-
+    <plurals name="contacts_notified">
+        <item quantity="one">%d contact notifié</item>
+        <item quantity="other">%d contacts notifiés</item>
+    </plurals>
+    <string name="call">Appeler</string>
+    <string name="sms">Envoyer SMS</string>
+    <!-- Autres strings si nécessaire -->
+    <string name="icon_sos">Icône SOS</string>
+    <string name="location">Localisation</string>
     <!-- Fonctionnalités principales -->
     <string name="sos_button">ALERTE SOS</string>
     <string name="report_danger">Signaler un danger</string>
