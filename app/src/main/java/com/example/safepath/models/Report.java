@@ -28,6 +28,17 @@ public class Report {
         this.status = "active";
         this.createdAt = new Date();
     }
+    public Report(String userId, String dangerType, String description, double latitude, double longitude, long timestamp) {
+        this.userId = userId;
+        this.dangerType = dangerType;
+        this.description = description;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.status = "active";
+        this.createdAt = new Date(timestamp);
+    }
+
+
 
     // Getters et setters
     public String getId() { return id; }
@@ -58,5 +69,6 @@ public class Report {
     public Date getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }
     public String getModeratorId() { return moderatorId; }
+
     public void setModeratorId(String moderatorId) { this.moderatorId = moderatorId; }
 }

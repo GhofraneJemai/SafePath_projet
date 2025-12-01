@@ -30,6 +30,7 @@ import androidx.core.content.ContextCompat;
 import com.bumptech.glide.Glide;
 import com.example.safepath.R;
 import com.example.safepath.models.Report;
+import com.example.safepath.utils.FirebaseHelper;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -92,39 +93,28 @@ public class ReportActivity extends AppCompatActivity {
             return;
         }
 
-        // 2. Initialiser Firebase
+        // 2. Initialiser Firebase avec le Singleton
         try {
-            Log.d(TAG, "Initializing Firebase with custom URL...");
+            Log.d(TAG, "Initializing Firebase with singleton...");
 
-            String databaseUrl = "https://safepath-7da06-default-rtdb.europe-west1.firebasedatabase.app";
-            FirebaseDatabase database = FirebaseDatabase.getInstance(databaseUrl);
+            FirebaseHelper firebaseHelper = FirebaseHelper.getInstance();
+            reportsRef = firebaseHelper.getReportsRef();
 
-            Log.d(TAG, "✅ FirebaseDatabase instance created");
-            Log.d(TAG, "Database URL: " + databaseUrl);
-
-            reportsRef = database.getReference("reports");
-            Log.d(TAG, "✅ Database reference created");
+            Log.d(TAG, "✅ FirebaseHelper instance created");
+            Log.d(TAG, "Database URL: " + FirebaseHelper.DATABASE_URL);
             Log.d(TAG, "Reports path: " + reportsRef.toString());
 
             storage = FirebaseStorage.getInstance();
             Log.d(TAG, "✅ FirebaseStorage instance created");
 
+            // Test de connexion amélioré
             testFirebaseConnectionImmediately();
 
         } catch (Exception e) {
             Log.e(TAG, "❌ ERROR initializing Firebase: " + e.getMessage(), e);
             Toast.makeText(this, "Erreur Firebase: " + e.getMessage(), Toast.LENGTH_LONG).show();
-
-            try {
-                Log.d(TAG, "Trying with default FirebaseDatabase instance...");
-                FirebaseDatabase database = FirebaseDatabase.getInstance();
-                reportsRef = database.getReference("reports");
-                Log.d(TAG, "✅ Default instance created");
-            } catch (Exception e2) {
-                Log.e(TAG, "❌ Default instance also failed: " + e2.getMessage());
-                finish();
-                return;
-            }
+            finish();
+            return;
         }
 
         // 3. Initialiser le système de localisation
@@ -382,21 +372,52 @@ public class ReportActivity extends AppCompatActivity {
         }
 
         if (reportsRef != null) {
-            DatabaseReference testRef = reportsRef.child("connection_test");
+            // Utiliser un nœud séparé pour les tests, pas sous reports/
+            DatabaseReference testRef = FirebaseDatabase.getInstance(FirebaseHelper.DATABASE_URL)
+                    .getReference("connection_tests/temp_test");
+
             String testValue = "test_" + System.currentTimeMillis();
 
-            Log.d(TAG, "Writing test value: " + testValue);
+            Log.d(TAG, "Writing test value to temporary location: " + testValue);
 
             testRef.setValue(testValue)
                     .addOnSuccessListener(aVoid -> {
                         Log.d(TAG, "✅✅✅ FIREBASE CONNECTION TEST SUCCESSFUL!");
                         Log.d(TAG, "   Test value written: " + testValue);
-                        testRef.removeValue();
+
+                        // Lire pour confirmer
+                        testRef.get().addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                String readValue = task.getResult().getValue(String.class);
+                                Log.d(TAG, "✅ Test value read back: " + readValue);
+
+                                // Supprimer le test
+                                testRef.removeValue()
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            Log.d(TAG, "✅ Test data cleaned up");
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.w(TAG, "⚠ Failed to clean up test data: " + e.getMessage());
+                                        });
+                            }
+                        });
                     })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "❌❌❌ FIREBASE CONNECTION TEST FAILED");
                         Log.e(TAG, "   Error: " + e.getMessage());
+                        Log.e(TAG, "   Error details: ", e);
+
+                        // Vérifier si c'est une erreur de permission
+                        if (e.getMessage().contains("Permission denied")) {
+                            runOnUiThread(() -> {
+                                Toast.makeText(ReportActivity.this,
+                                        "Erreur de permission Firebase. Vérifiez les règles de sécurité.",
+                                        Toast.LENGTH_LONG).show();
+                            });
+                        }
                     });
+        } else {
+            Log.e(TAG, "❌ reportsRef is null!");
         }
     }
 
@@ -620,52 +641,65 @@ public class ReportActivity extends AppCompatActivity {
 
             report.setId(reportId);
 
-            Log.d(TAG, "Generated ID: " + reportId);
-            Log.d(TAG, "Saving to path: reports/" + reportId);
+            Log.d(TAG, "✅ Generated ID: " + reportId);
+            Log.d(TAG, "📁 Path: reports/" + reportId);
+            Log.d(TAG, "📊 Data to save: " + report.toString());
 
-            reportsRef.child(reportId).setValue(report)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Log.d(TAG, "✅✅✅✅✅✅ SUCCESS! Report saved to Firebase");
-                            Log.d(TAG, "   Path: reports/" + reportId);
-                            Log.d(TAG, "   Time: " + new Date().toString());
-                            Log.d(TAG, "   Location: " + report.getLatitude() + ", " + report.getLongitude());
+            DatabaseReference specificReportRef = reportsRef.child(reportId);
+            Log.d(TAG, "🔗 Specific ref: " + specificReportRef.toString());
 
-                            runOnUiThread(() -> {
-                                Toast.makeText(ReportActivity.this,
-                                        "✅ Signalement envoyé avec succès!",
-                                        Toast.LENGTH_LONG).show();
+            // Test d'écriture simple d'abord
+            DatabaseReference testRef = specificReportRef.child("test_field");
+            testRef.setValue("test_" + System.currentTimeMillis())
+                    .addOnSuccessListener(testSuccess -> {
+                        Log.d(TAG, "✅ Test write successful");
 
-                                new AlertDialog.Builder(ReportActivity.this)
-                                        .setTitle("Succès")
-                                        .setMessage("Votre signalement a été enregistré.\n" +
-                                                "ID: " + reportId + "\n" +
-                                                "Localisation: " + report.getLocationSource())
-                                        .setPositiveButton("OK", (dialog, which) -> {
-                                            finish();
-                                        })
-                                        .setCancelable(false)
-                                        .show();
-                            });
+                        // Maintenant sauvegarder tout le report
+                        specificReportRef.setValue(report)
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        Log.d(TAG, "✅✅✅✅✅✅ SUCCESS! Report saved to Firebase");
+                                        Log.d(TAG, "   Path: reports/" + reportId);
+                                        Log.d(TAG, "   Time: " + new Date().toString());
+                                        Log.d(TAG, "   Location: " + report.getLatitude() + ", " + report.getLongitude());
 
-                        } else {
-                            Exception e = task.getException();
-                            Log.e(TAG, "❌❌❌ FAILED to save report");
-                            Log.e(TAG, "   Error: " + (e != null ? e.getMessage() : "Unknown error"));
+                                        runOnUiThread(() -> {
+                                            Toast.makeText(ReportActivity.this,
+                                                    "✅ Signalement envoyé avec succès!",
+                                                    Toast.LENGTH_LONG).show();
 
-                            runOnUiThread(() -> {
-                                Toast.makeText(ReportActivity.this,
-                                        "Erreur: " + (e != null ? e.getMessage() : "Inconnue"),
-                                        Toast.LENGTH_LONG).show();
-                                resetSubmitState();
-                            });
-                        }
+                                            new AlertDialog.Builder(ReportActivity.this)
+                                                    .setTitle("Succès")
+                                                    .setMessage("Votre signalement a été enregistré.\n" +
+                                                            "ID: " + reportId + "\n" +
+                                                            "Localisation: " + report.getLocationSource())
+                                                    .setPositiveButton("OK", (dialog, which) -> {
+                                                        finish();
+                                                    })
+                                                    .setCancelable(false)
+                                                    .show();
+                                        });
+
+                                    } else {
+                                        Exception e = task.getException();
+                                        Log.e(TAG, "❌❌❌ FAILED to save report");
+                                        Log.e(TAG, "   Error: " + (e != null ? e.getMessage() : "Unknown error"));
+
+                                        runOnUiThread(() -> {
+                                            Toast.makeText(ReportActivity.this,
+                                                    "Erreur: " + (e != null ? e.getMessage() : "Inconnue"),
+                                                    Toast.LENGTH_LONG).show();
+                                            resetSubmitState();
+                                        });
+                                    }
+                                });
+
                     })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "❌ setValue() failed: " + e.getMessage());
+                    .addOnFailureListener(testError -> {
+                        Log.e(TAG, "❌ Test write failed: " + testError.getMessage());
                         runOnUiThread(() -> {
                             Toast.makeText(ReportActivity.this,
-                                    "Échec: " + e.getMessage(),
+                                    "Impossible d'accéder à la base de données: " + testError.getMessage(),
                                     Toast.LENGTH_LONG).show();
                             resetSubmitState();
                         });

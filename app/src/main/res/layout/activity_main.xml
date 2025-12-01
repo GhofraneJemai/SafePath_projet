@@ -14,6 +14,7 @@
         android:padding="16dp"
         android:elevation="4dp">
 
+        <!-- Profile -->
         <ImageView
             android:id="@+id/profileImage"
             android:layout_width="40dp"
@@ -22,6 +23,7 @@
             android:background="@drawable/circle_bg"
             android:padding="8dp" />
 
+        <!-- Title -->
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -32,15 +34,29 @@
             android:gravity="center"
             android:textColor="@color/primary_color" />
 
+        <!-- Notification -->
         <ImageView
             android:id="@+id/notificationIcon"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:src="@drawable/ic_notification"
             android:background="@drawable/circle_bg"
-            android:padding="8dp" />
+            android:padding="8dp"
+            android:layout_marginEnd="8dp"/>
 
+        <!-- LOGOUT (CORRIGÉ COMME LES AUTRES !) -->
+        <ImageView
+            android:id="@+id/logoutButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            app:srcCompat="@drawable/ic_logout"
+            android:background="@drawable/circle_bg"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:contentDescription="Déconnexion"
+            app:tint="@color/primary_color" />
     </LinearLayout>
+
 
     <!-- MapView - CORRIGÉ -->
     <com.google.android.gms.maps.MapView

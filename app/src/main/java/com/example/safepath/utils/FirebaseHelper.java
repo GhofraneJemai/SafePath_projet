@@ -1,55 +1,45 @@
 package com.example.safepath.utils;
 
-import android.util.Log;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.storage.FirebaseStorage;
 
 public class FirebaseHelper {
+    private static FirebaseHelper instance;
+    private FirebaseDatabase database;
+    private DatabaseReference reportsRef;
+    private DatabaseReference safeZonesRef;
+    private DatabaseReference usersRef;
 
-    private static final String TAG = "FirebaseHelper";
+    public static final String DATABASE_URL = "https://safepath-7da06-default-rtdb.europe-west1.firebasedatabase.app";
 
-    // URL Firebase Realtime Database
-    private static final String DATABASE_URL =
-            "https://safepath-7da06-default-rtdb.europe-west1.firebasedatabase.app";
-
-    private static FirebaseDatabase firebaseDatabase;
-    private static FirebaseStorage firebaseStorage;
-
-    // ================================
-    //  GET DATABASE
-    // ================================
-    public static FirebaseDatabase getDatabase() {
-        if (firebaseDatabase == null) {
-            try {
-                firebaseDatabase = FirebaseDatabase.getInstance(DATABASE_URL);
-
-                // Activer une seule fois
-                firebaseDatabase.setPersistenceEnabled(true);
-
-                Log.d(TAG, "✅ FirebaseDatabase instance created with URL: " + DATABASE_URL);
-            } catch (Exception e) {
-                Log.e(TAG, "❌ Error using explicit URL: " + e.getMessage());
-                firebaseDatabase = FirebaseDatabase.getInstance();
-            }
-        }
-        return firebaseDatabase;
+    private FirebaseHelper() {
+        // Utilisez toujours la même instance avec la même URL
+        database = FirebaseDatabase.getInstance(DATABASE_URL);
+        reportsRef = database.getReference("reports");
+        safeZonesRef = database.getReference("safe_zones");
+        usersRef = database.getReference("users");
     }
 
-    // ================================
-    //  GET STORAGE
-    // ================================
-    public static FirebaseStorage getStorage() {
-        if (firebaseStorage == null) {
-            firebaseStorage = FirebaseStorage.getInstance();
-            Log.d(TAG, "✅ FirebaseStorage instance created");
+    public static synchronized FirebaseHelper getInstance() {
+        if (instance == null) {
+            instance = new FirebaseHelper();
         }
-        return firebaseStorage;
+        return instance;
     }
 
-    // ================================
-    //  RETURN URL FOR DEBUG ONLY
-    // ================================
-    public static String getDatabaseUrl() {
-        return DATABASE_URL;
+    public FirebaseDatabase getDatabase() {
+        return database;
+    }
+
+    public DatabaseReference getReportsRef() {
+        return reportsRef;
+    }
+
+    public DatabaseReference getSafeZonesRef() {
+        return safeZonesRef;
+    }
+
+    public DatabaseReference getUsersRef() {
+        return usersRef;
     }
 }

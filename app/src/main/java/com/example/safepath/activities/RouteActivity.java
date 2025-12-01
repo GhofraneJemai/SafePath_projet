@@ -3,6 +3,7 @@ package com.example.safepath.activities;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -21,27 +22,40 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.safepath.R;
+import com.example.safepath.models.Report;
+import com.example.safepath.models.SafeZone;
+import com.example.safepath.utils.FirebaseHelper;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -49,7 +63,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-public class RouteActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMapClickListener {
+public class RouteActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMapClickListener, GoogleMap.OnMarkerClickListener {
 
     private GoogleMap googleMap;
     private MapView mapView;
@@ -65,10 +79,19 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
     private FusedLocationProviderClient fusedLocationClient;
     private OkHttpClient httpClient;
 
+    // Références Firebase pour les reports et safe zones
+    private DatabaseReference reportsRef, safeZonesRef;
+
+    // Pour stocker les markers avec leurs IDs
+    private Map<String, Marker> reportMarkers = new HashMap<>();
+    private Map<String, Circle> reportCircles = new HashMap<>();
+    private Map<String, Marker> safeZoneMarkers = new HashMap<>();
+
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
 
     // API KEY CORRECTEMENT CONFIGURÉE POUR DIRECTIONS API
     private static final String MAPS_API_KEY = "AIzaSyCWAeD7DS4l3_2Q15dQ4B3cDq0eLw9n8Jk";
+    private static final String TAG = "RouteActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -78,9 +101,26 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         httpClient = new OkHttpClient();
 
+        // Initialiser Firebase
+        initFirebase();
+
         initViews();
         setupMap(savedInstanceState);
         getCurrentLocation();
+    }
+
+    private void initFirebase() {
+        try {
+            FirebaseHelper firebaseHelper = FirebaseHelper.getInstance();
+            reportsRef = firebaseHelper.getReportsRef();
+            safeZonesRef = firebaseHelper.getSafeZonesRef();
+
+            Log.d(TAG, "✅ Firebase initialized in RouteActivity");
+            Log.d(TAG, "Reports ref: " + reportsRef.toString());
+
+        } catch (Exception e) {
+            Log.e(TAG, "❌ ERROR initializing Firebase: " + e.getMessage(), e);
+        }
     }
 
     private void initViews() {
@@ -117,8 +157,9 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
         googleMap.getUiSettings().setZoomControlsEnabled(true);
         googleMap.getUiSettings().setMyLocationButtonEnabled(true);
 
-        // Activer le clic sur la carte
+        // Activer les clics sur la carte et les markers
         googleMap.setOnMapClickListener(this);
+        googleMap.setOnMarkerClickListener(this);
 
         // Activer la couche de localisation
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -126,15 +167,225 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
             try {
                 googleMap.setMyLocationEnabled(true);
             } catch (SecurityException e) {
-                Log.e("ROUTE", "SecurityException: " + e.getMessage());
+                Log.e(TAG, "SecurityException: " + e.getMessage());
             }
         }
+
+        // Charger les reports et safe zones
+        loadReports();
+        loadSafeZones();
     }
 
     @Override
     public void onMapClick(LatLng latLng) {
         // Quand l'utilisateur clique sur la carte
         setDestinationFromMap(latLng);
+    }
+
+    @Override
+    public boolean onMarkerClick(@NonNull Marker marker) {
+        Object tag = marker.getTag();
+
+        if (tag instanceof Report) {
+            Report report = (Report) tag;
+
+            // Afficher une info-bulle personnalisée
+            marker.showInfoWindow();
+
+            // Ouvrir un dialogue avec les détails
+            showReportDetails(report);
+
+            return true;
+        } else if (tag instanceof SafeZone) {
+            SafeZone safeZone = (SafeZone) tag;
+            marker.showInfoWindow();
+
+            // Option : ouvrir un dialogue avec les détails de la safe zone
+            Toast.makeText(this, "Zone sécurisée: " + safeZone.getName(), Toast.LENGTH_SHORT).show();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private void showReportDetails(Report report) {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("Danger signalé");
+
+        StringBuilder message = new StringBuilder();
+        message.append("Type: ").append(report.getDangerType()).append("\n\n");
+
+        if (report.getDescription() != null && !report.getDescription().isEmpty()) {
+            message.append("Description: ").append(report.getDescription()).append("\n\n");
+        }
+
+        if (report.getCreatedAt() != null) {
+            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
+            message.append("Date: ").append(sdf.format(report.getCreatedAt())).append("\n\n");
+        }
+
+        message.append("Position: ")
+                .append(String.format(Locale.getDefault(), "%.6f", report.getLatitude()))
+                .append(", ")
+                .append(String.format(Locale.getDefault(), "%.6f", report.getLongitude()));
+
+        if (report.getLocationSource() != null) {
+            message.append("\nSource: ").append(report.getLocationSource());
+        }
+
+        builder.setMessage(message.toString());
+        builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+    private void loadReports() {
+        if (reportsRef == null) {
+            Log.w(TAG, "⚠ reportsRef is null, cannot load reports");
+            return;
+        }
+
+        Log.d(TAG, "=== LOADING REPORTS FOR ROUTE ACTIVITY ===");
+
+        reportsRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Log.d(TAG, "Reports data changed, count: " + snapshot.getChildrenCount());
+
+                // Supprimer tous les anciens markers et cercles de reports
+                for (Map.Entry<String, Marker> entry : reportMarkers.entrySet()) {
+                    entry.getValue().remove();
+                }
+                reportMarkers.clear();
+
+                for (Map.Entry<String, Circle> entry : reportCircles.entrySet()) {
+                    entry.getValue().remove();
+                }
+                reportCircles.clear();
+
+                int validReports = 0;
+                int skippedEntries = 0;
+
+                // Ajouter les nouveaux reports
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    String key = data.getKey();
+
+                    // IGNORER LES CHAMPS SPÉCIAUX QUI NE SONT PAS DES REPORTS
+                    if ("connection_test".equals(key) || "sos_alerts".equals(key)) {
+                        Log.d(TAG, "⚠ Skipping non-report entry: " + key);
+                        skippedEntries++;
+                        continue;
+                    }
+
+                    try {
+                        Report report = data.getValue(Report.class);
+                        if (report != null) {
+                            report.setId(key); // S'assurer que l'ID est défini
+                            addReportMarker(report);
+                            validReports++;
+                            Log.d(TAG, "✅ Added report: " + report.getId() + " at " +
+                                    report.getLatitude() + ", " + report.getLongitude());
+                        } else {
+                            Log.w(TAG, "⚠ Report is null for key: " + key);
+                            skippedEntries++;
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Error parsing report for key: " + key, e);
+                        skippedEntries++;
+                    }
+                }
+
+                Log.d(TAG, "Total reports loaded: " + validReports + " (" + skippedEntries + " skipped)");
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "❌ Error loading reports: " + error.getMessage());
+            }
+        });
+    }
+
+    private void loadSafeZones() {
+        if (safeZonesRef == null) {
+            Log.w(TAG, "⚠ safeZonesRef is null, cannot load safe zones");
+            return;
+        }
+
+        safeZonesRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Log.d(TAG, "Safe zones data changed, count: " + snapshot.getChildrenCount());
+
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    SafeZone safeZone = data.getValue(SafeZone.class);
+                    if (safeZone != null) {
+                        safeZone.setId(data.getKey());
+                        addSafeZoneMarker(safeZone);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "❌ Error loading safe zones: " + error.getMessage());
+            }
+        });
+    }
+
+    private void addReportMarker(Report report) {
+        if (googleMap == null || report == null) return;
+
+        LatLng position = new LatLng(report.getLatitude(), report.getLongitude());
+
+        // Créer un marker avec une icône rouge
+        MarkerOptions markerOptions = new MarkerOptions()
+                .position(position)
+                .title(report.getDangerType())
+                .snippet("Cliquez pour plus d'infos")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+
+        Marker marker = googleMap.addMarker(markerOptions);
+        if (marker != null && report.getId() != null) {
+            reportMarkers.put(report.getId(), marker);
+            marker.setTag(report); // Stocker l'objet Report dans le tag
+
+            // Ajouter un cercle rouge autour du marker
+            addReportCircle(report, position);
+        }
+    }
+
+    private void addReportCircle(Report report, LatLng position) {
+        // Ajouter un cercle rouge semi-transparent
+        CircleOptions circleOptions = new CircleOptions()
+                .center(position)
+                .radius(50) // 50 mètres de rayon
+                .strokeColor(Color.RED)
+                .strokeWidth(2)
+                .fillColor(Color.argb(70, 255, 0, 0)); // Rouge semi-transparent
+
+        Circle circle = googleMap.addCircle(circleOptions);
+        if (circle != null && report.getId() != null) {
+            reportCircles.put(report.getId(), circle);
+        }
+    }
+
+    private void addSafeZoneMarker(SafeZone safeZone) {
+        if (googleMap == null || safeZone == null) return;
+
+        LatLng position = new LatLng(safeZone.getLatitude(), safeZone.getLongitude());
+
+        // Créer un marker avec une icône verte
+        MarkerOptions markerOptions = new MarkerOptions()
+                .position(position)
+                .title(safeZone.getName())
+                .snippet(safeZone.getType())
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN));
+
+        Marker marker = googleMap.addMarker(markerOptions);
+        if (marker != null && safeZone.getId() != null) {
+            safeZoneMarkers.put(safeZone.getId(), marker);
+            marker.setTag(safeZone); // Stocker l'objet SafeZone dans le tag
+        }
     }
 
     private void setDestinationFromMap(LatLng latLng) {
@@ -149,7 +400,8 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
         destinationMarker = googleMap.addMarker(new MarkerOptions()
                 .position(latLng)
                 .title("Destination")
-                .snippet("Cliquez pour calculer l'itinéraire"));
+                .snippet("Cliquez pour calculer l'itinéraire")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
 
         // Centrer la carte sur la destination
         googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15));
@@ -177,7 +429,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                 selectedLocationText.setText("Destination: " + addressLine);
             }
         } catch (IOException e) {
-            Log.e("ROUTE", "Erreur géocodage: " + e.getMessage());
+            Log.e(TAG, "Erreur géocodage: " + e.getMessage());
             selectedLocationText.setText("Destination: Lat " + latLng.latitude + ", Lng " + latLng.longitude);
         }
     }
@@ -204,7 +456,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
             }
         } catch (IOException e) {
             Toast.makeText(this, "Erreur de recherche: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            Log.e("ROUTE", "Erreur recherche: " + e.getMessage());
+            Log.e(TAG, "Erreur recherche: " + e.getMessage());
         } finally {
             routeProgressBar.setVisibility(View.GONE);
         }
@@ -223,19 +475,19 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                             }
                         } else {
                             // Si la localisation est null, utiliser une position par défaut
-                            currentLocation = new LatLng(48.8566, 2.3522); // Paris
+                            currentLocation = new LatLng(36.8065, 10.1815); // Tunis
                             Toast.makeText(this, "Localisation non disponible, utilisation position par défaut", Toast.LENGTH_SHORT).show();
                         }
                     })
                     .addOnFailureListener(e -> {
-                        Log.e("ROUTE", "Erreur localisation: " + e.getMessage());
-                        currentLocation = new LatLng(48.8566, 2.3522); // Paris par défaut
+                        Log.e(TAG, "Erreur localisation: " + e.getMessage());
+                        currentLocation = new LatLng(36.8065, 10.1815); // Tunis par défaut
                     });
         } else {
             // Demander la permission
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     LOCATION_PERMISSION_REQUEST_CODE);
-            currentLocation = new LatLng(48.8566, 2.3522); // Paris par défaut
+            currentLocation = new LatLng(36.8065, 10.1815); // Tunis par défaut
         }
     }
 
@@ -249,7 +501,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                     try {
                         googleMap.setMyLocationEnabled(true);
                     } catch (SecurityException e) {
-                        Log.e("ROUTE", "SecurityException: " + e.getMessage());
+                        Log.e(TAG, "SecurityException: " + e.getMessage());
                     }
                 }
             } else {
@@ -283,8 +535,8 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                 "&mode=driving" +
                 "&key=" + MAPS_API_KEY;
 
-        Log.d("ROUTE", "=== API REQUEST ===");
-        Log.d("ROUTE", "URL: " + url);
+        Log.d(TAG, "=== API REQUEST ===");
+        Log.d(TAG, "URL: " + url);
 
         Request request = new Request.Builder()
                 .url(url)
@@ -294,7 +546,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 runOnUiThread(() -> {
-                    Log.e("ROUTE", "API Network Error: " + e.getMessage());
+                    Log.e(TAG, "API Network Error: " + e.getMessage());
                     Toast.makeText(RouteActivity.this, "Erreur réseau, utilisation du mode simulation", Toast.LENGTH_SHORT).show();
                     calculateRouteWithSafety(); // Fallback
                 });
@@ -302,15 +554,15 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
 
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                Log.d("ROUTE", "HTTP Response Code: " + response.code());
+                Log.d(TAG, "HTTP Response Code: " + response.code());
 
                 if (response.isSuccessful() && response.body() != null) {
                     String jsonData = response.body().string();
-                    Log.d("ROUTE", "API Response received, length: " + jsonData.length());
+                    Log.d(TAG, "API Response received, length: " + jsonData.length());
                     processDirectionsResponse(jsonData);
                 } else {
                     runOnUiThread(() -> {
-                        Log.e("ROUTE", "HTTP error: " + response.code() + " - " + response.message());
+                        Log.e(TAG, "HTTP error: " + response.code() + " - " + response.message());
                         Toast.makeText(RouteActivity.this, "Erreur serveur, utilisation du mode simulation", Toast.LENGTH_SHORT).show();
                         calculateRouteWithSafety(); // Fallback
                     });
@@ -321,16 +573,16 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
 
     private void processDirectionsResponse(String jsonResponse) {
         runOnUiThread(() -> {
-            Log.d("ROUTE", "=== PROCESSING API RESPONSE ===");
+            Log.d(TAG, "=== PROCESSING API RESPONSE ===");
 
             try {
                 JSONObject json = new JSONObject(jsonResponse);
                 String status = json.getString("status");
-                Log.d("ROUTE", "API Status: " + status);
+                Log.d(TAG, "API Status: " + status);
 
                 if ("OK".equals(status)) {
                     JSONArray routes = json.getJSONArray("routes");
-                    Log.d("ROUTE", "Number of routes found: " + routes.length());
+                    Log.d(TAG, "Number of routes found: " + routes.length());
 
                     if (routes.length() > 0) {
                         JSONObject route = routes.getJSONObject(0);
@@ -339,7 +591,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                         if (route.has("overview_polyline")) {
                             JSONObject overviewPolyline = route.getJSONObject("overview_polyline");
                             String encodedPath = overviewPolyline.getString("points");
-                            Log.d("ROUTE", "Polyline encoded, length: " + encodedPath.length());
+                            Log.d(TAG, "Polyline encoded, length: " + encodedPath.length());
 
                             displayRealRouteFromJSON(route);
                             return;
@@ -349,7 +601,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
 
                 // Si on arrive ici, c'est qu'il y a une erreur
                 String errorMessage = json.optString("error_message", "Unknown error");
-                Log.e("ROUTE", "API Error - Status: " + status + ", Message: " + errorMessage);
+                Log.e(TAG, "API Error - Status: " + status + ", Message: " + errorMessage);
 
                 // Message utilisateur plus clair
                 String userMessage = "Impossible de calculer l'itinéraire. ";
@@ -365,7 +617,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                 calculateRouteWithSafety(); // Fallback vers la simulation
 
             } catch (JSONException e) {
-                Log.e("ROUTE", "JSON parsing error: " + e.getMessage());
+                Log.e(TAG, "JSON parsing error: " + e.getMessage());
                 Toast.makeText(RouteActivity.this, "Erreur traitement des données", Toast.LENGTH_SHORT).show();
                 calculateRouteWithSafety(); // Fallback
             }
@@ -387,7 +639,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
 
             // Décoder le polyline
             points = decodePolyline(encodedPath);
-            Log.d("ROUTE", "Decoded points: " + points.size());
+            Log.d(TAG, "Decoded points: " + points.size());
 
             if (points.isEmpty()) {
                 throw new JSONException("Empty polyline after decoding");
@@ -408,12 +660,12 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
             googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
 
             // Mettre à jour les informations
-            updateRealRouteInfoFromJSON(route);
+            updateRealRouteInfoFromJSON(route, points);
 
             Toast.makeText(this, "Itinéraire Google Maps calculé!", Toast.LENGTH_SHORT).show();
 
         } catch (JSONException e) {
-            Log.e("ROUTE", "Error displaying route: " + e.getMessage());
+            Log.e(TAG, "Error displaying route: " + e.getMessage());
             calculateRouteWithSafety(); // Fallback
         }
     }
@@ -451,7 +703,7 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
         return poly;
     }
 
-    private void updateRealRouteInfoFromJSON(JSONObject route) {
+    private void updateRealRouteInfoFromJSON(JSONObject route, List<LatLng> routePoints) {
         try {
             JSONArray legs = route.getJSONArray("legs");
             if (legs.length() > 0) {
@@ -469,20 +721,20 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                 distanceText.setText(distanceTextValue);
                 durationText.setText(durationTextValue);
 
-                // Calculer le score de sécurité
-                int safetyScore = calculateSafetyScoreFromRealRoute(leg);
+                // Calculer le score de sécurité AVEC PRISE EN COMPTE DES REPORTS
+                int safetyScore = calculateSafetyScoreFromRealRouteWithReports(leg, routePoints);
                 safetyLevelText.setText(getSafetyLevelText(safetyScore));
                 safetyLevelText.setTextColor(getSafetyColor(safetyScore));
 
                 // Afficher les infos
                 routeInfoLayout.setVisibility(View.VISIBLE);
 
-                Log.d("ROUTE", "Route info: " + distanceTextValue + " en " + durationTextValue);
+                Log.d(TAG, "Route info: " + distanceTextValue + " en " + durationTextValue);
 
             }
         } catch (JSONException e) {
-            Log.e("ROUTE", "Error updating route info: " + e.getMessage());
-            updateRouteInfo(); // Utiliser les valeurs par défaut
+            Log.e(TAG, "Error updating route info: " + e.getMessage());
+            updateRouteInfo(routePoints); // Utiliser les valeurs par défaut
         } finally {
             routeProgressBar.setVisibility(View.GONE);
             startNavigationButton.setVisibility(View.VISIBLE);
@@ -490,14 +742,14 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
         }
     }
 
-    private int calculateSafetyScoreFromRealRoute(JSONObject leg) {
+    private int calculateSafetyScoreFromRealRouteWithReports(JSONObject leg, List<LatLng> routePoints) {
         try {
             int baseScore = 80;
 
-            // Analyser les steps pour détecter les zones potentiellement dangereuses
+            // 1. Analyser les steps pour détecter les zones potentiellement dangereuses
             if (leg.has("steps")) {
                 JSONArray steps = leg.getJSONArray("steps");
-                Log.d("ROUTE", "Number of steps in route: " + steps.length());
+                Log.d(TAG, "Number of steps in route: " + steps.length());
 
                 // Réduire le score basé sur certains facteurs
                 for (int i = 0; i < steps.length(); i++) {
@@ -510,35 +762,124 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
                             htmlInstructions.contains("alley") ||
                             htmlInstructions.contains("isolated")) {
                         baseScore -= 5;
-                        Log.d("ROUTE", "Dangerous area detected: " + htmlInstructions);
+                        Log.d(TAG, "Dangerous area detected: " + htmlInstructions);
                     }
                 }
             }
 
-            return Math.max(50, baseScore); // Minimum 50
+            // 2. Vérifier la proximité avec les reports (signalements de danger)
+            int reportsNearRoute = countReportsNearRoute(routePoints);
+            baseScore -= (reportsNearRoute * 10); // -10 points par report proche
+            Log.d(TAG, "Reports near route: " + reportsNearRoute);
+
+            // 3. Vérifier la proximité avec les safe zones
+            int safeZonesNearRoute = countSafeZonesNearRoute(routePoints);
+            baseScore += (safeZonesNearRoute * 5); // +5 points par safe zone proche
+            Log.d(TAG, "Safe zones near route: " + safeZonesNearRoute);
+
+            return Math.max(30, Math.min(100, baseScore)); // Limiter entre 30 et 100
 
         } catch (JSONException e) {
-            Log.e("ROUTE", "Error calculating safety score: " + e.getMessage());
+            Log.e(TAG, "Error calculating safety score: " + e.getMessage());
             return 75; // Score par défaut en cas d'erreur
         }
     }
 
+    private int countReportsNearRoute(List<LatLng> routePoints) {
+        int count = 0;
+        float[] results = new float[1];
+
+        for (Report report : getActiveReports()) {
+            LatLng reportLocation = new LatLng(report.getLatitude(), report.getLongitude());
+
+            // Vérifier la distance minimale du report à l'itinéraire
+            for (LatLng routePoint : routePoints) {
+                Location.distanceBetween(
+                        routePoint.latitude, routePoint.longitude,
+                        reportLocation.latitude, reportLocation.longitude,
+                        results
+                );
+
+                // Si le report est à moins de 100m de l'itinéraire
+                if (results[0] < 100) {
+                    count++;
+                    break;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private int countSafeZonesNearRoute(List<LatLng> routePoints) {
+        int count = 0;
+        float[] results = new float[1];
+
+        for (SafeZone safeZone : getSafeZones()) {
+            LatLng safeZoneLocation = new LatLng(safeZone.getLatitude(), safeZone.getLongitude());
+
+            // Vérifier la distance minimale de la safe zone à l'itinéraire
+            for (LatLng routePoint : routePoints) {
+                Location.distanceBetween(
+                        routePoint.latitude, routePoint.longitude,
+                        safeZoneLocation.latitude, safeZoneLocation.longitude,
+                        results
+                );
+
+                // Si la safe zone est à moins de 200m de l'itinéraire
+                if (results[0] < 200) {
+                    count++;
+                    break;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private List<Report> getActiveReports() {
+        List<Report> activeReports = new ArrayList<>();
+        for (Marker marker : reportMarkers.values()) {
+            Object tag = marker.getTag();
+            if (tag instanceof Report) {
+                Report report = (Report) tag;
+                if ("active".equals(report.getStatus())) {
+                    activeReports.add(report);
+                }
+            }
+        }
+        return activeReports;
+    }
+
+    private List<SafeZone> getSafeZones() {
+        List<SafeZone> safeZones = new ArrayList<>();
+        for (Marker marker : safeZoneMarkers.values()) {
+            Object tag = marker.getTag();
+            if (tag instanceof SafeZone) {
+                safeZones.add((SafeZone) tag);
+            }
+        }
+        return safeZones;
+    }
+
     private String getSafetyLevelText(int score) {
-        if (score >= 80) return "Très Sûr";
-        if (score >= 70) return "Sûr";
-        if (score >= 60) return "Modéré";
-        return "Risqué";
+        if (score >= 80) return "Très Sûr ✓";
+        if (score >= 70) return "Sûr ✓";
+        if (score >= 60) return "Modéré ⚠";
+        if (score >= 50) return "Risqueux ⚠";
+        return "Dangereux ✗";
     }
 
     private int getSafetyColor(int score) {
         if (score >= 80) return ContextCompat.getColor(this, R.color.safe_color);
         if (score >= 70) return ContextCompat.getColor(this, R.color.warning_color);
+        if (score >= 60) return ContextCompat.getColor(this, R.color.warning_color);
         return ContextCompat.getColor(this, R.color.danger_color);
     }
 
     // Fallback method (simulation améliorée)
     private void calculateRouteWithSafety() {
-        Log.d("ROUTE", "Using fallback simulation mode");
+        Log.d(TAG, "Using fallback simulation mode");
 
         // Effacer l'ancien itinéraire
         if (currentRoute != null) {
@@ -562,8 +903,8 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
         LatLngBounds bounds = builder.build();
         googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
 
-        // Mettre à jour les informations
-        updateRouteInfo();
+        // Mettre à jour les informations avec prise en compte des reports
+        updateRouteInfoWithReports(routePoints);
 
         routeProgressBar.setVisibility(View.GONE);
         startNavigationButton.setVisibility(View.VISIBLE);
@@ -603,11 +944,37 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
 
         points.add(destinationLocation);
 
-        Log.d("ROUTE", "Generated simulation route with " + points.size() + " points");
+        Log.d(TAG, "Generated simulation route with " + points.size() + " points");
         return points;
     }
 
-    private void updateRouteInfo() {
+    private void updateRouteInfoWithReports(List<LatLng> routePoints) {
+        if (currentLocation == null || destinationLocation == null) return;
+
+        // Calculer la distance réelle
+        float[] results = new float[1];
+        Location.distanceBetween(
+                currentLocation.latitude, currentLocation.longitude,
+                destinationLocation.latitude, destinationLocation.longitude,
+                results
+        );
+
+        float distanceKm = results[0] / 1000;
+        int durationMinutes = (int) (distanceKm * 2.5); // Estimation 40km/h
+
+        // Calculer le score de sécurité AVEC PRISE EN COMPTE DES REPORTS
+        int safetyScore = calculateSafetyScoreWithReports(distanceKm, routePoints);
+
+        distanceText.setText(String.format("%.1f km", distanceKm));
+        durationText.setText(String.format("%d min", durationMinutes));
+
+        safetyLevelText.setText(getSafetyLevelText(safetyScore));
+        safetyLevelText.setTextColor(getSafetyColor(safetyScore));
+
+        routeInfoLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void updateRouteInfo(List<LatLng> routePoints) {
         if (currentLocation == null || destinationLocation == null) return;
 
         // Calculer la distance réelle
@@ -633,6 +1000,24 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
         routeInfoLayout.setVisibility(View.VISIBLE);
     }
 
+    private int calculateSafetyScoreWithReports(float distance, List<LatLng> routePoints) {
+        int baseScore = 85;
+
+        // Pénalité pour la distance
+        if (distance > 10) baseScore -= 20;
+        else if (distance > 5) baseScore -= 10;
+
+        // Pénalité pour les reports proches
+        int reportsNearRoute = countReportsNearRoute(routePoints);
+        baseScore -= (reportsNearRoute * 15);
+
+        // Bonus pour les safe zones proches
+        int safeZonesNearRoute = countSafeZonesNearRoute(routePoints);
+        baseScore += (safeZonesNearRoute * 8);
+
+        return Math.max(30, Math.min(100, baseScore));
+    }
+
     private int calculateSafetyScore(float distance) {
         int baseScore = 85;
         if (distance > 10) baseScore -= 20;
@@ -655,14 +1040,40 @@ public class RouteActivity extends AppCompatActivity implements OnMapReadyCallba
     }
 
     // Gestion du lifecycle MapView
-    @Override protected void onResume() { super.onResume(); mapView.onResume(); }
-    @Override protected void onPause() { super.onPause(); mapView.onPause(); }
-    @Override protected void onDestroy() { super.onDestroy(); mapView.onDestroy(); }
-    @Override protected void onSaveInstanceState(@NonNull Bundle outState) {
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mapView.onResume();
+        // Recharger les données quand on revient à l'activité
+        if (googleMap != null) {
+            loadReports();
+            loadSafeZones();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mapView.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        mapView.onDestroy();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
     }
-    @Override public void onLowMemory() { super.onLowMemory(); mapView.onLowMemory(); }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        mapView.onLowMemory();
+    }
 
     @Override
     protected void onStart() {
