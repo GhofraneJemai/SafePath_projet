@@ -52,6 +52,7 @@ public class LoginActivity extends AppCompatActivity {
 
         initViews();
         setupClickListeners();
+
     }
 
     private void configureGoogleSignIn() {

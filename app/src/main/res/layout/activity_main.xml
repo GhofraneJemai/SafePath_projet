@@ -42,48 +42,52 @@
 
     </LinearLayout>
 
-    <!-- Map -->
+    <!-- MapView - CORRIGÉ -->
     <com.google.android.gms.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/header"
-        android:layout_above="@id/bottomNavigation" />
+        android:layout_above="@id/bottomNavigation"
+        android:background="@color/gray" /> <!-- Couleur de fond temporaire -->
 
-    <!-- Floating Action Buttons -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/sosFab"
+    <!-- Floating Action Buttons Container -->
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_above="@id/bottomNavigation"
         android:layout_marginEnd="24dp"
-        android:layout_marginBottom="32dp"
-        app:backgroundTint="@color/danger_color"
-        app:tint="@color/white"
-        android:src="@drawable/ic_sos" />
+        android:layout_marginBottom="100dp"
+        android:orientation="vertical">
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/reportFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignEnd="@id/sosFab"
-        android:layout_above="@id/sosFab"
-        android:layout_marginBottom="16dp"
-        app:backgroundTint="@color/secondary_color"
-        app:tint="@color/white"
-        android:src="@drawable/ic_report" />
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/routeFab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:backgroundTint="@color/primary_color"
+            app:tint="@color/white"
+            android:src="@drawable/ic_route" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/routeFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignEnd="@id/sosFab"
-        android:layout_above="@id/reportFab"
-        android:layout_marginBottom="16dp"
-        app:backgroundTint="@color/primary_color"
-        app:tint="@color/white"
-        android:src="@drawable/ic_route" />
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/reportFab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:backgroundTint="@color/secondary_color"
+            app:tint="@color/white"
+            android:src="@drawable/ic_report" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/sosFab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:backgroundTint="@color/danger_color"
+            app:tint="@color/white"
+            android:src="@drawable/ic_sos" />
+
+    </LinearLayout>
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView

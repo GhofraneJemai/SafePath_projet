@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:padding="24dp"
     android:background="@color/white">
 
@@ -11,15 +11,17 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <!-- Logo -->
         <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="40dp"
-            android:layout_marginBottom="30dp"
+            android:layout_marginTop="60dp"
+            android:layout_marginBottom="40dp"
             android:src="@drawable/ic_shield"
             app:tint="@color/primary_color" />
 
+        <!-- Titre -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -28,13 +30,14 @@
             android:textStyle="bold"
             android:gravity="center"
             android:textColor="@color/primary_color"
-            android:layout_marginBottom="30dp" />
+            android:layout_marginBottom="40dp" />
 
+        <!-- Nom complet -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:boxBackgroundMode="outline">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/nameEditText"
@@ -42,14 +45,14 @@
                 android:layout_height="wrap_content"
                 android:hint="Nom complet"
                 android:inputType="textPersonName" />
-
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Email -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:boxBackgroundMode="outline">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/emailEditText"
@@ -57,14 +60,14 @@
                 android:layout_height="wrap_content"
                 android:hint="Email"
                 android:inputType="textEmailAddress" />
-
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Mot de passe -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:boxBackgroundMode="outline">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/passwordEditText"
@@ -72,14 +75,14 @@
                 android:layout_height="wrap_content"
                 android:hint="Mot de passe"
                 android:inputType="textPassword" />
-
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Confirmer mot de passe -->
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="24dp"
+            app:boxBackgroundMode="outline">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/confirmPasswordEditText"
@@ -87,9 +90,9 @@
                 android:layout_height="wrap_content"
                 android:hint="Confirmer le mot de passe"
                 android:inputType="textPassword" />
-
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Conditions -->
         <CheckBox
             android:id="@+id/termsCheckBox"
             android:layout_width="match_parent"
@@ -97,6 +100,7 @@
             android:text="J'accepte les conditions d'utilisation"
             android:layout_marginBottom="24dp" />
 
+        <!-- Bouton S'inscrire -->
         <Button
             android:id="@+id/registerButton"
             android:layout_width="match_parent"
@@ -107,6 +111,7 @@
             android:textSize="16sp"
             android:layout_marginBottom="16dp" />
 
+        <!-- ProgressBar -->
         <ProgressBar
             android:id="@+id/progressBar"
             android:layout_width="wrap_content"
@@ -115,5 +120,4 @@
             android:visibility="gone" />
 
     </LinearLayout>
-
 </ScrollView>

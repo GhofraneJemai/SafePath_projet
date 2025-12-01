@@ -1,16 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Search Bar -->
+    <!-- Header -->
     <LinearLayout
-        android:id="@+id/searchLayout"
+        android:id="@+id/header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@color/primary_color"
         android:orientation="horizontal"
-        android:background="@color/white"
+        android:padding="16dp">
+
+        <ImageView
+            android:id="@+id/backButton"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="@color/white"
+            android:onClick="onBackPressed" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Itinéraire Sécurisé"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+    <!-- Search Section -->
+    <LinearLayout
+        android:id="@+id/searchSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/header"
+        android:orientation="horizontal"
         android:padding="16dp"
+        android:background="@color/white"
         android:elevation="4dp">
 
         <EditText
@@ -18,31 +49,42 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Destination"
+            android:hint="Entrez une adresse ou cliquez sur la carte"
             android:background="@drawable/edittext_background"
             android:padding="12dp" />
 
         <Button
-            android:id="@+id/calculateRouteButton"
+            android:id="@+id/searchButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Calculer"
+            android:text="🔍"
             android:layout_marginStart="8dp"
-            android:backgroundTint="@color/primary_color" />
+            style="@style/Widget.Material3.Button.OutlinedButton" />
 
     </LinearLayout>
+
+    <!-- Selected Location Info -->
+    <TextView
+        android:id="@+id/selectedLocationText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/searchSection"
+        android:padding="8dp"
+        android:text="Cliquez sur la carte pour sélectionner une destination"
+        android:background="@color/gray"
+        android:textColor="@color/black" />
 
     <!-- Map -->
     <com.google.android.gms.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@id/searchLayout"
-        android:layout_above="@id/routeInfoLayout" />
+        android:layout_height="0dp"
+        android:layout_below="@id/selectedLocationText"
+        android:layout_above="@id/controlsSection" />
 
-    <!-- Route Information -->
+    <!-- Controls Section -->
     <LinearLayout
-        android:id="@+id/routeInfoLayout"
+        android:id="@+id/controlsSection"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -51,85 +93,106 @@
         android:elevation="8dp"
         android:padding="16dp">
 
+        <ProgressBar
+            android:id="@+id/routeProgressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <!-- Route Info -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_marginBottom="16dp"
+            android:visibility="gone"
+            android:id="@+id/routeInfoLayout">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Distance:"
-                android:textStyle="bold" />
+                android:orientation="vertical"
+                android:gravity="center">
 
-            <TextView
-                android:id="@+id/distanceText"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Distance"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/distanceText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="-- km"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="-- km"
-                android:gravity="center" />
+                android:orientation="vertical"
+                android:gravity="center">
 
-            <TextView
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Durée"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/durationText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="-- min"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Durée:"
-                android:textStyle="bold"
-                android:gravity="center" />
+                android:orientation="vertical"
+                android:gravity="center">
 
-            <TextView
-                android:id="@+id/durationText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="-- min"
-                android:gravity="end" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sécurité"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/safetyLevelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
-        <LinearLayout
+        <!-- Action Buttons -->
+        <Button
+            android:id="@+id/calculateRouteButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:layout_marginTop="8dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Niveau de sécurité:"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/safetyLevelText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="--"
-                android:gravity="end"
-                android:textStyle="bold" />
-
-        </LinearLayout>
+            android:text="Calculer l'itinéraire sûr"
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
 
         <Button
             android:id="@+id/startNavigationButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Démarrer la navigation"
-            android:layout_marginTop="16dp"
-            android:visibility="gone"
-            android:backgroundTint="@color/primary_color" />
-
-        <ProgressBar
-            android:id="@+id/routeProgressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
+            android:text="Démarrer la Navigation"
+            android:backgroundTint="@color/safe_color"
+            android:textColor="@color/white"
+            android:textStyle="bold"
             android:visibility="gone" />
 
     </LinearLayout>
